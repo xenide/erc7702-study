@@ -27,17 +27,19 @@ contract CounterScript is Script {
             lCodeSize := extcodesize(eoa)
 
             if gt(lCodeSize, 0) {
-                let lFreeMemPointer := mload(0x40)
+                let ptr := mload(0x40)
 
                 // stores the code size of EOA into memory
-                mstore(lFreeMemPointer, lCodeSize)
-                lExtCode := lFreeMemPointer
+                mstore(ptr, lCodeSize)
+                lExtCode := ptr
 
                 // We start 0x20 later cuz the first 32 bytes contain the code size
-                extcodecopy(eoa, add(lFreeMemPointer, 0x20), 0, lCodeSize)
+                // Cuz for the `bytes memory` type, the EVM needs to know how long the bytes are, and that is the
+                // stored as the first 32 bytes of `lExtCode`
+                extcodecopy(eoa, add(ptr, 0x20), 0, lCodeSize)
 
                 // update the free memory pointer, round up next 32 bytes
-                mstore(0x40, add(add(lFreeMemPointer, 0x20), and(add(lCodeSize, 0x1f), not(0x1f))))
+                mstore(0x40, add(add(ptr, 0x20), and(add(lCodeSize, 0x1f), not(0x1f))))
             }
         }
         console.log("extcodesize", lCodeSize);
