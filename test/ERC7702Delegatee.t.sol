@@ -14,6 +14,7 @@ contract ERC7702DelegateeTest is Test {
         vm.deal(_alice.addr, 100 ether);
 
         delegatee = new ERC7702Delegatee();
+        _delegate();
     }
 
     function _delegate() internal {
@@ -22,8 +23,6 @@ contract ERC7702DelegateeTest is Test {
     }
 
     function testDelegate() public {
-        _delegate();
-
         address aliceAddr = _alice.addr;
 
         uint256 aliceCodeSize;
@@ -43,5 +42,16 @@ contract ERC7702DelegateeTest is Test {
         delegateeSlot0Value = vm.load(address(delegatee), 0);
         assertEq(aliceSlot0ValueAfter, bytes32(uint256(69)));
         assertEq(delegateeSlot0Value, bytes32(uint256(1))); // delegatee storage remains the same
+    }
+
+    // call Alice's address just like a contract
+    function testRawCall() public {
+        _alice.addr.call(abi.encodeWithSelector(ERC7702Delegatee.setNumber.selector, 69));
+        bytes32 aliceSlot0Value = vm.load(address(_alice.addr), 0);
+        assertEq(aliceSlot0Value, bytes32(uint256(69)));
+
+        // Sending ETH to alice now will just revert as it doesn't have a receive / fallback function
+        (bool success, ) = _alice.addr.call{value: 1 ether}("");
+        assertFalse(success);
     }
 }
