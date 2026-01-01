@@ -51,7 +51,7 @@ contract ERC7702DelegateeTest is Test {
         assertEq(aliceSlot0Value, bytes32(uint256(69)));
 
         // Sending ETH to alice now will just revert as it doesn't have a receive / fallback function
-        (bool success, ) = _alice.addr.call{value: 1 ether}("");
+        (bool success,) = _alice.addr.call{value: 1 ether}("");
         assertFalse(success);
     }
 }
