@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-contract Counter {
-    uint256 public number;
+contract ERC7702Delegatee {
+    uint256 public number = 1;
 
     function setNumber(uint256 newNumber) public {
         number = newNumber;
