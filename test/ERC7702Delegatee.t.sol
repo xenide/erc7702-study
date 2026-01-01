@@ -54,4 +54,12 @@ contract ERC7702DelegateeTest is Test {
         (bool success,) = _alice.addr.call{value: 1 ether}("");
         assertFalse(success);
     }
+
+    function testUndelegate() public {
+        Vm.SignedDelegation memory sd = vm.signDelegation(address(0), _alice.privateKey);
+        vm.attachDelegation(sd);
+
+        uint256 codeSize = _alice.addr.code.length;
+        assertEq(codeSize, 0);
+    }
 }
