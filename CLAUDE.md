@@ -60,3 +60,7 @@ npx tsx script/example.ts
 
 ### TypeScript Scripts
 Scripts in `script/` use viem to interact with ERC-7702 on Sepolia testnet. Requires configuring private key in `script/client.ts`.
+
+
+## Style
+Use comments sparingly when generating code.
