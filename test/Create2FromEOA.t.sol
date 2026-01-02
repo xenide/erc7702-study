@@ -86,7 +86,6 @@ contract Create2FromEOATest is Test {
         pure
         returns (address)
     {
-
         bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), deployerAddr, salt, keccak256(initCode)));
         return address(uint160(uint256(hash)));
     }

@@ -26,9 +26,10 @@ contract Deployer {
 
     /// @notice Predict CREATE2 address without deploying
     function predictAddress(bytes memory initCode, bytes32 salt) external view returns (address) {
-        return address(
-            uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(initCode)))))
-        );
+        return
+            address(
+                uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(initCode)))))
+            );
     }
 
     receive() external payable {}
