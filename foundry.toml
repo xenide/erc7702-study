@@ -3,6 +3,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.33"
+verbosity = 3
 ignored_error_codes = [2424,5574]
 evm_version = "osaka"
 
