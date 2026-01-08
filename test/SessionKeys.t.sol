@@ -58,6 +58,10 @@ contract SessionKeysTest is Test {
                     "RegisterSessionKey(address sessionKey,uint256 validUntil,uint256 spendLimit,address[] allowedTargets,bytes4[] allowedSelectors,uint256 nonce)"
                 ),
                 sessionKey,
+                validUntil,
+                spendLimit,
+                allowedTargets,
+                allowedSelectors,
                 nonce
             )
         );
@@ -321,13 +325,17 @@ contract SessionKeysTest is Test {
         assertEq(sk.spentAmount, 0.8 ether);
     }
 
-    // ============ Exploit Tests ============
+    // ============ Security Tests ============
 
-    /// @notice Demonstrates that the signature doesn't bind to permission parameters
-    /// @dev The owner signs intending to grant LIMITED permissions, but an attacker
-    ///      can use the same signature to register with UNLIMITED permissions
-    function test_Exploit_SignatureDoesNotBindToPermissions() public {
-        // === STEP 1: Owner intends to sign for RESTRICTED permissions ===
+    /// @notice Documents a potential signature malleability attack and verifies it's prevented
+    /// @dev VULNERABILITY (if struct hash doesn't include all params):
+    ///      An attacker could intercept a signature meant for restricted permissions
+    ///      and replay it with escalated permissions (more spend limit, longer validity, etc.)
+    ///
+    ///      FIX: The struct hash MUST include ALL permission parameters, not just sessionKey + nonce.
+    ///      This binds the signature to the exact permissions the owner intended.
+    function test_SignatureMalleabilityPrevented() public {
+        // === SETUP: Owner signs for RESTRICTED permissions ===
         address[] memory intendedTargets = new address[](1);
         intendedTargets[0] = address(counter); // Only allow counter contract
 
@@ -337,64 +345,51 @@ contract SessionKeysTest is Test {
         uint256 intendedSpendLimit = 0.1 ether; // Only allow 0.1 ETH spending
         uint256 intendedValidUntil = block.timestamp + 1 hours; // Only valid for 1 hour
 
-        // Owner signs the registration (thinking these restrictions will apply)
-        bytes memory ownerSignature =
-            _signRegister(_sessionKey.addr, intendedValidUntil, intendedSpendLimit, intendedTargets, intendedSelectors, 0);
-
-        // === STEP 2: Attacker intercepts signature and registers with DIFFERENT params ===
-        address[] memory attackerTargets = new address[](0); // Empty = ALL targets allowed!
-        bytes4[] memory attackerSelectors = new bytes4[](0); // Empty = ALL selectors allowed!
-        uint256 attackerSpendLimit = 1000 ether; // Massive spending limit!
-        uint256 attackerValidUntil = block.timestamp + 365 days; // Valid for a year!
-
-        // Attacker calls registerSessionKey with the owner's signature but different params
-        // This SHOULD fail if the signature bound to the parameters... but it doesn't!
-        // Now with the correct impl of `registerSessionKey`, the exploit will fail.
-        vm.expectRevert(SessionKeyDelegatee.InvalidSignature.selector);
-        SessionKeyDelegatee(payable(_owner.addr)).registerSessionKey(
-            _sessionKey.addr,
-            attackerValidUntil, // Different from what owner intended!
-            attackerSpendLimit, // Different from what owner intended!
-            attackerTargets, // Different from what owner intended!
-            attackerSelectors, // Different from what owner intended!
-            ownerSignature // Same signature the owner created
+        bytes memory ownerSignature = _signRegister(
+            _sessionKey.addr, intendedValidUntil, intendedSpendLimit, intendedTargets, intendedSelectors, 0
         );
 
-        // === STEP 3: Verify the exploit worked ===
+        // === ATTACK ATTEMPT: Try to use signature with ESCALATED permissions ===
+        // If the signature only bound to (sessionKey, nonce), this would succeed!
+        address[] memory attackerTargets = new address[](0); // Empty = ALL targets allowed
+        bytes4[] memory attackerSelectors = new bytes4[](0); // Empty = ALL selectors allowed
+        uint256 attackerSpendLimit = 1000 ether; // 10000x the intended limit!
+        uint256 attackerValidUntil = block.timestamp + 365 days; // 8760x longer!
+
+        // SECURITY CHECK: Attack is rejected because signature binds to ALL params
+        vm.expectRevert(SessionKeyDelegatee.InvalidSignature.selector);
+        SessionKeyDelegatee(payable(_owner.addr))
+            .registerSessionKey(
+                _sessionKey.addr,
+                attackerValidUntil,
+                attackerSpendLimit,
+                attackerTargets,
+                attackerSelectors,
+                ownerSignature
+            );
+
+        // === VERIFY: Session key was NOT registered ===
         SessionKeyDelegatee.SessionKey memory sk =
             SessionKeyDelegatee(payable(_owner.addr)).getSessionKey(_sessionKey.addr);
+        assertFalse(sk.isActive, "Session key should not be registered");
+        assertEq(sk.spendLimit, 0, "Spend limit should be 0 (not registered)");
 
-        // The session key was registered with ATTACKER's parameters, not owner's intent!
-        assertEq(sk.spendLimit, 1000 ether, "Exploit: spendLimit was changed");
-        assertEq(sk.validUntil, block.timestamp + 365 days, "Exploit: validUntil was changed");
+        // === CORRECT USAGE: Same signature with MATCHING params succeeds ===
+        SessionKeyDelegatee(payable(_owner.addr))
+            .registerSessionKey(
+                _sessionKey.addr,
+                intendedValidUntil, // Must match what was signed
+                intendedSpendLimit, // Must match what was signed
+                intendedTargets, // Must match what was signed
+                intendedSelectors, // Must match what was signed
+                ownerSignature
+            );
 
-        (address[] memory actualTargets, bytes4[] memory actualSelectors) =
-            SessionKeyDelegatee(payable(_owner.addr)).getSessionKeyPermissions(_sessionKey.addr);
-        assertEq(actualTargets.length, 0, "Exploit: targets were changed to allow all");
-        assertEq(actualSelectors.length, 0, "Exploit: selectors were changed to allow all");
-
-        // === STEP 4: Demonstrate the impact - session key can now do ANYTHING ===
-
-        // Can call any target (not just counter)
-        SessionKeyDelegatee.Call[] memory calls = new SessionKeyDelegatee.Call[](1);
-        calls[0] = SessionKeyDelegatee.Call({
-            target: address(0xdead), // Arbitrary target - owner intended only `counter`!
-            value: 0,
-            data: ""
-        });
-        vm.prank(_sessionKey.addr);
-        SessionKeyDelegatee(payable(_owner.addr)).executeAsSessionKey(calls);
-        // ^ This succeeds when owner intended to restrict to only `counter`!
-
-        // Can spend way more ETH than owner intended
-        calls[0] = SessionKeyDelegatee.Call({
-            target: address(counter),
-            value: 50 ether, // Owner intended max 0.1 ETH!
-            data: ""
-        });
-        vm.prank(_sessionKey.addr);
-        SessionKeyDelegatee(payable(_owner.addr)).executeAsSessionKey(calls);
-        // ^ This succeeds when owner intended max 0.1 ETH!
+        // Verify registration with INTENDED permissions
+        sk = SessionKeyDelegatee(payable(_owner.addr)).getSessionKey(_sessionKey.addr);
+        assertTrue(sk.isActive, "Session key should now be registered");
+        assertEq(sk.spendLimit, 0.1 ether, "Spend limit should match owner's intent");
+        assertEq(sk.validUntil, block.timestamp + 1 hours, "Validity should match owner's intent");
     }
 }
 

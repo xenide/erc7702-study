@@ -95,7 +95,6 @@ contract SessionKeyDelegatee {
 
     // ============ Owner Functions (Signature Required) ============
 
-    // TODO(human): Implement registerSessionKey function
     function registerSessionKey(
         address sessionKey,
         uint256 validUntil,
@@ -104,7 +103,9 @@ contract SessionKeyDelegatee {
         bytes4[] calldata allowedSelectors,
         bytes calldata ownerSignature
     ) external {
-        bytes32 structHash = keccak256(abi.encode(REGISTER_TYPEHASH, sessionKey, validUntil, spendLimit, allowedTargets, allowedSelectors, nonce));
+        bytes32 structHash = keccak256(
+            abi.encode(REGISTER_TYPEHASH, sessionKey, validUntil, spendLimit, allowedTargets, allowedSelectors, nonce)
+        );
         bytes32 digest = _hashTypedData(structHash);
         _verifyOwnerSignature(digest, ownerSignature);
 
