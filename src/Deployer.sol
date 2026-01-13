@@ -2,11 +2,10 @@
 pragma solidity ^0.8.13;
 
 /// @title Deployer
-/// @notice ERC-7702 delegatee that enables EOAs to deploy contracts via CREATE/CREATE2
+/// @notice ERC-7702 delegatee enabling EOAs to deploy contracts via CREATE/CREATE2
 contract Deployer {
     event Deployed(address indexed deployed, bytes32 salt);
 
-    /// @notice Deploy using CREATE (nonce-based address)
     function deploy(bytes memory initCode) external payable returns (address deployed) {
         assembly {
             deployed := create(callvalue(), add(initCode, 0x20), mload(initCode))
@@ -15,7 +14,6 @@ contract Deployer {
         emit Deployed(deployed, bytes32(0));
     }
 
-    /// @notice Deploy using CREATE2 (deterministic address)
     function deploy2(bytes memory initCode, bytes32 salt) external payable returns (address deployed) {
         assembly {
             deployed := create2(callvalue(), add(initCode, 0x20), mload(initCode), salt)
@@ -24,7 +22,6 @@ contract Deployer {
         emit Deployed(deployed, salt);
     }
 
-    /// @notice Predict CREATE2 address without deploying
     function predictAddress(bytes memory initCode, bytes32 salt) external view returns (address) {
         return
             address(

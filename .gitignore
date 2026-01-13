@@ -16,6 +16,9 @@ docs/
 # node files
 /node_modules
 
+# Soldeer dependencies
+/dependencies
+
 # claude
 .claude/settings.local.json
 

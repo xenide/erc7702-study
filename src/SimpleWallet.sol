@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 /// @title SimpleWallet
-/// @notice Minimal wallet deployed by an EOA via ERC-7702 + CREATE2
+/// @notice Minimal wallet deployable by an EOA via ERC-7702 + CREATE2
 contract SimpleWallet {
     address public immutable owner;
     uint256 public nonce;
