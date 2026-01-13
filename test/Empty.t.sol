@@ -3,6 +3,4 @@ pragma solidity ^0.8.33;
 
 import {Test} from "forge-std/Test.sol";
 
-contract EmptyTest is Test {
-
-}
+contract EmptyTest is Test {}

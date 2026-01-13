@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 /// @title MockERC20
-/// @notice Simple ERC20 implementation for testing
+/// @notice Minimal ERC20 for testing
 contract MockERC20 {
     string public name;
     string public symbol;
